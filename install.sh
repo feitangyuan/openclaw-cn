@@ -31,7 +31,7 @@ read_required_text() {
       printf '%s' "$value"
       return
     fi
-    echo "This field is required. Please try again."
+    echo "This field is required. Please try again." >&2
   done
 }
 
@@ -44,23 +44,23 @@ read_required_secret() {
       printf '%s' "$value"
       return
     fi
-    echo "This field is required. Please try again."
+    echo "This field is required. Please try again." >&2
   done
 }
 
 choose_provider() {
   local key=""
   while true; do
-    echo "选择模型厂商（单键选择，不用回车）："
-    echo "[K] Kimi（默认，推荐）"
-    echo "[M] MiniMax"
-    echo "[1] Kimi（同 K）"
-    echo "[2] MiniMax（同 M）"
-    printf "请按 K / M / 1 / 2（8 秒默认 Kimi）: "
+    echo "选择模型厂商（单键选择，不用回车）：" >&2
+    echo "[K] Kimi（默认，推荐）" >&2
+    echo "[M] MiniMax" >&2
+    echo "[1] Kimi（同 K）" >&2
+    echo "[2] MiniMax（同 M）" >&2
+    printf "请按 K / M / 1 / 2（8 秒默认 Kimi）: " >&2
     if read -r -s -n 1 -t 8 key </dev/tty; then
-      echo
+      echo >&2
     else
-      echo
+      echo >&2
       key="k"
     fi
 
@@ -74,7 +74,7 @@ choose_provider() {
         return
         ;;
       *)
-        echo "输入无效，请按 K / M / 1 / 2。"
+        echo "输入无效，请按 K / M / 1 / 2。" >&2
         ;;
     esac
   done
