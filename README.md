@@ -16,6 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/instal
 
 填完自动配置，自动启动 Gateway。
 安装阶段会优先使用国内 npm 镜像，失败后自动回退官方安装方式。
+模型选择为单键交互：按 `K` 选 Kimi，按 `M` 选 MiniMax（默认 Kimi）。
 
 默认使用 Kimi；如果你用 MiniMax，可在安装命令前加：
 

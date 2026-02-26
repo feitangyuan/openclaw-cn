@@ -48,6 +48,36 @@ read_required_secret() {
   done
 }
 
+choose_provider() {
+  local key=""
+  while true; do
+    echo "Choose model provider (single key, no Enter needed):"
+    echo "[K] Kimi (default, recommended)"
+    echo "[M] MiniMax"
+    printf "Press K or M (default K in 8s): "
+    if read -r -s -n 1 -t 8 key </dev/tty; then
+      echo
+    else
+      echo
+      key="k"
+    fi
+
+    case "${key,,}" in
+      ""|"k")
+        printf "kimi"
+        return
+        ;;
+      "m")
+        printf "minimax"
+        return
+        ;;
+      *)
+        echo "Invalid key. Please press K or M."
+        ;;
+    esac
+  done
+}
+
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
@@ -156,16 +186,7 @@ echo "Tip: all inputs are visible on screen. Type and press Enter."
 
 provider="${OPENCLAW_PROVIDER:-}"
 if [ -z "$provider" ]; then
-  echo "Choose model provider:"
-  echo "1) Kimi (default, recommended)"
-  echo "2) MiniMax"
-  provider_choice="$(read_text "Enter 1 or 2 (default 1): ")"
-  provider_choice="${provider_choice:-1}"
-  if [ "$provider_choice" = "2" ]; then
-    provider="minimax"
-  else
-    provider="kimi"
-  fi
+  provider="$(choose_provider)"
 fi
 
 case "$provider" in
