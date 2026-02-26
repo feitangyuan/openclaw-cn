@@ -91,14 +91,15 @@ ensure_openclaw() {
 
   section "Installing OpenClaw"
   if command_exists npm; then
+    npm config set progress false >/dev/null 2>&1 || true
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
-      npm install -g openclaw
+      npm install -g openclaw --registry https://registry.npmmirror.com --loglevel=error || true
     elif [ -w /opt/homebrew/lib/node_modules ] || [ -w /usr/local/lib/node_modules ]; then
-      npm install -g openclaw
+      npm install -g openclaw --registry https://registry.npmmirror.com --loglevel=error || true
     elif command_exists sudo; then
-      run_privileged npm install -g openclaw
+      run_privileged npm install -g openclaw --registry https://registry.npmmirror.com --loglevel=error || true
     else
-      npm install -g openclaw
+      npm install -g openclaw --registry https://registry.npmmirror.com --loglevel=error || true
     fi
   fi
 
