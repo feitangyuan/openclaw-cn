@@ -196,6 +196,11 @@ fi
 openclaw config set channels.feishu.enabled true
 openclaw config set channels.feishu.accounts.main.appId "$feishu_app_id"
 openclaw config set channels.feishu.accounts.main.appSecret "$feishu_app_secret"
+feishu_dm_policy="${OPENCLAW_FEISHU_DM_POLICY:-open}"
+openclaw config set channels.feishu.dmPolicy "$feishu_dm_policy"
+if [ "$feishu_dm_policy" = "open" ]; then
+  openclaw config set channels.feishu.allowFrom '["*"]' --strict-json
+fi
 
 section "Starting Gateway"
 openclaw gateway install >/dev/null 2>&1 || true
