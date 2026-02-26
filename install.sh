@@ -152,7 +152,7 @@ ensure_openclaw
 
 section "Collecting config"
 echo "We need 3 values: API Key, Feishu App ID, Feishu App Secret."
-echo "Tip: secret fields do not show typed characters. Type and press Enter."
+echo "Tip: all inputs are visible on screen. Type and press Enter."
 
 provider="${OPENCLAW_PROVIDER:-}"
 if [ -z "$provider" ]; then
@@ -183,9 +183,9 @@ case "$provider" in
     ;;
 esac
 
-api_key="$(read_required_secret "$api_key_label (input hidden, press Enter to submit): ")"
+api_key="$(read_required_text "$api_key_label: ")"
 feishu_app_id="$(read_required_text "Feishu App ID (starts with cli_): ")"
-feishu_app_secret="$(read_required_secret "Feishu App Secret (input hidden, press Enter to submit): ")"
+feishu_app_secret="$(read_required_text "Feishu App Secret: ")"
 
 if [ -z "$api_key" ] || [ -z "$feishu_app_id" ] || [ -z "$feishu_app_secret" ]; then
   echo "All values are required."
