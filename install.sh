@@ -132,23 +132,31 @@ section "Collecting config"
 echo "We need 3 values: API Key, Feishu App ID, Feishu App Secret."
 echo "Tip: all inputs are visible on screen. Type and press Enter."
 
-provider="${OPENCLAW_PROVIDER:-kimi}"
+provider="${OPENCLAW_PROVIDER:-kimi-code}"
 provider="$(printf '%s' "$provider" | tr -d '[:space:]')"
 provider="$(printf '%s' "$provider" | tr '[:upper:]' '[:lower:]')"
 case "$provider" in
-  "1"|"k")
-    provider="kimi"
+  "1"|"k"|"kimi"|"kimi-code"|"kimicode")
+    provider="kimi-code"
     ;;
-  "2"|"m")
+  "2"|"m"|"minimax")
     provider="minimax"
+    ;;
+  "moonshot"|"moon")
+    provider="moonshot"
     ;;
 esac
 
 case "$provider" in
-  kimi)
+  kimi-code)
+    model_ref="kimi-coding/k2p5"
+    auth_choice="kimi-code-api-key"
+    api_key_label="Kimi Code API Key"
+    ;;
+  moonshot)
     model_ref="moonshot/kimi-k2.5"
     auth_choice="moonshot-api-key"
-    api_key_label="Kimi API Key"
+    api_key_label="Moonshot API Key"
     ;;
   minimax)
     model_ref="minimax/MiniMax-M2.5"
@@ -156,11 +164,11 @@ case "$provider" in
     api_key_label="MiniMax API Key"
     ;;
   *)
-    echo "OPENCLAW_PROVIDER value '$provider' is invalid. Using default provider: kimi."
-    provider="kimi"
-    model_ref="moonshot/kimi-k2.5"
-    auth_choice="moonshot-api-key"
-    api_key_label="Kimi API Key"
+    echo "OPENCLAW_PROVIDER value '$provider' is invalid. Using default provider: kimi-code."
+    provider="kimi-code"
+    model_ref="kimi-coding/k2p5"
+    auth_choice="kimi-code-api-key"
+    api_key_label="Kimi Code API Key"
     ;;
 esac
 
@@ -181,9 +189,14 @@ if [ "$provider" = "minimax" ]; then
     --auth-choice "$auth_choice" --minimax-api-key "$api_key" \
     --skip-channels --skip-daemon --skip-skills --skip-ui --skip-health \
     --gateway-bind loopback --gateway-port 18789
-else
+elif [ "$provider" = "moonshot" ]; then
   openclaw onboard --non-interactive --accept-risk --mode local \
     --auth-choice "$auth_choice" --moonshot-api-key "$api_key" \
+    --skip-channels --skip-daemon --skip-skills --skip-ui --skip-health \
+    --gateway-bind loopback --gateway-port 18789
+else
+  openclaw onboard --non-interactive --accept-risk --mode local \
+    --auth-choice "$auth_choice" --kimi-code-api-key "$api_key" \
     --skip-channels --skip-daemon --skip-skills --skip-ui --skip-health \
     --gateway-bind loopback --gateway-port 18789
 fi
