@@ -9,9 +9,16 @@ section() {
 # Read input without echoing sensitive content.
 read_secret() {
   local prompt="$1"
-  local value
-  read -r -s -p "$prompt" value
+  local value=""
+  read -r -s -p "$prompt" value </dev/tty
   echo
+  printf '%s' "$value"
+}
+
+read_text() {
+  local prompt="$1"
+  local value=""
+  read -r -p "$prompt" value </dev/tty
   printf '%s' "$value"
 }
 
@@ -133,7 +140,7 @@ case "$provider" in
 esac
 
 api_key="$(read_secret "Model API Key: ")"
-feishu_app_id="$(read -r -p "Feishu App ID (cli_...): " v; printf '%s' "$v")"
+feishu_app_id="$(read_text "Feishu App ID (cli_...): ")"
 feishu_app_secret="$(read_secret "Feishu App Secret: ")"
 
 if [ -z "$api_key" ] || [ -z "$feishu_app_id" ] || [ -z "$feishu_app_secret" ]; then
