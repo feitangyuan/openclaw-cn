@@ -6,15 +6,6 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
-# Read input without echoing sensitive content.
-read_secret() {
-  local prompt="$1"
-  local value=""
-  read -r -s -p "$prompt" value </dev/tty
-  echo
-  printf '%s' "$value"
-}
-
 read_text() {
   local prompt="$1"
   local value=""
@@ -32,51 +23,6 @@ read_required_text() {
       return
     fi
     echo "This field is required. Please try again." >&2
-  done
-}
-
-read_required_secret() {
-  local prompt="$1"
-  local value=""
-  while true; do
-    value="$(read_secret "$prompt")"
-    if [ -n "$value" ]; then
-      printf '%s' "$value"
-      return
-    fi
-    echo "This field is required. Please try again." >&2
-  done
-}
-
-choose_provider() {
-  local key=""
-  while true; do
-    echo "选择模型厂商（单键选择，不用回车）：" >&2
-    echo "[K] Kimi（默认，推荐）" >&2
-    echo "[M] MiniMax" >&2
-    echo "[1] Kimi（同 K）" >&2
-    echo "[2] MiniMax（同 M）" >&2
-    printf "请按 K / M / 1 / 2（8 秒默认 Kimi）: " >&2
-    if read -r -s -n 1 -t 8 key </dev/tty; then
-      echo >&2
-    else
-      echo >&2
-      key="k"
-    fi
-
-    case "$key" in
-      ""|"k"|"K"|"1")
-        printf "kimi"
-        return
-        ;;
-      "m"|"M"|"2")
-        printf "minimax"
-        return
-        ;;
-      *)
-        echo "输入无效，请按 K / M / 1 / 2。" >&2
-        ;;
-    esac
   done
 }
 
@@ -186,7 +132,7 @@ section "Collecting config"
 echo "We need 3 values: API Key, Feishu App ID, Feishu App Secret."
 echo "Tip: all inputs are visible on screen. Type and press Enter."
 
-provider="${OPENCLAW_PROVIDER:-}"
+provider="${OPENCLAW_PROVIDER:-kimi}"
 provider="$(printf '%s' "$provider" | tr -d '[:space:]')"
 provider="$(printf '%s' "$provider" | tr '[:upper:]' '[:lower:]')"
 case "$provider" in
@@ -198,35 +144,27 @@ case "$provider" in
     ;;
 esac
 
-if [ -z "$provider" ]; then
-  provider="$(choose_provider)"
-fi
-
 case "$provider" in
   kimi)
-    model="kimi-k2.5"
+    model_ref="moonshot/kimi-k2.5"
+    auth_choice="moonshot-api-key"
     api_key_label="Kimi API Key"
     ;;
   minimax)
-    model="abab6.5s-chat"
+    model_ref="minimax/MiniMax-M2.5"
+    auth_choice="minimax-api"
     api_key_label="MiniMax API Key"
     ;;
   *)
-    echo "OPENCLAW_PROVIDER value '$provider' is invalid. Falling back to interactive choice."
-    provider="$(choose_provider)"
-    case "$provider" in
-      kimi)
-        model="kimi-k2.5"
-        api_key_label="Kimi API Key"
-        ;;
-      minimax)
-        model="abab6.5s-chat"
-        api_key_label="MiniMax API Key"
-        ;;
-    esac
+    echo "OPENCLAW_PROVIDER value '$provider' is invalid. Using default provider: kimi."
+    provider="kimi"
+    model_ref="moonshot/kimi-k2.5"
+    auth_choice="moonshot-api-key"
+    api_key_label="Kimi API Key"
     ;;
 esac
 
+echo "Provider: $provider"
 api_key="$(read_required_text "$api_key_label: ")"
 feishu_app_id="$(read_required_text "Feishu App ID (starts with cli_): ")"
 feishu_app_secret="$(read_required_text "Feishu App Secret: ")"
@@ -236,64 +174,38 @@ if [ -z "$api_key" ] || [ -z "$feishu_app_id" ] || [ -z "$feishu_app_secret" ]; 
   exit 1
 fi
 
-section "Writing ~/.openclaw/openclaw.json"
-mkdir -p "$HOME/.openclaw"
-CONFIG_PATH="$HOME/.openclaw/openclaw.json"
-if [ ! -f "$CONFIG_PATH" ]; then
-  echo '{}' > "$CONFIG_PATH"
+section "Configuring OpenClaw"
+openclaw doctor --fix >/dev/null 2>&1 || true
+if [ "$provider" = "minimax" ]; then
+  openclaw onboard --non-interactive --accept-risk --mode local \
+    --auth-choice "$auth_choice" --minimax-api-key "$api_key" \
+    --skip-channels --skip-daemon --skip-skills --skip-ui --skip-health \
+    --gateway-bind loopback --gateway-port 18789
+else
+  openclaw onboard --non-interactive --accept-risk --mode local \
+    --auth-choice "$auth_choice" --moonshot-api-key "$api_key" \
+    --skip-channels --skip-daemon --skip-skills --skip-ui --skip-health \
+    --gateway-bind loopback --gateway-port 18789
 fi
 
-CONFIG_PATH="$CONFIG_PATH" \
-PROVIDER="$provider" \
-MODEL="$model" \
-API_KEY="$api_key" \
-FEISHU_APP_ID="$feishu_app_id" \
-FEISHU_APP_SECRET="$feishu_app_secret" \
-node <<'NODE'
-const fs = require('fs');
+if ! openclaw plugins enable feishu >/dev/null 2>&1; then
+  openclaw plugins install @openclaw/feishu
+  openclaw plugins enable feishu >/dev/null 2>&1
+fi
 
-const configPath = process.env.CONFIG_PATH;
-const provider = process.env.PROVIDER;
-const model = process.env.MODEL;
-const apiKey = process.env.API_KEY;
-const appId = process.env.FEISHU_APP_ID;
-const appSecret = process.env.FEISHU_APP_SECRET;
-
-let cfg = {};
-try {
-  cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-} catch {
-  cfg = {};
-}
-
-cfg.providers = cfg.providers || {};
-cfg.providers.kimi = cfg.providers.kimi || {};
-cfg.providers.minimax = cfg.providers.minimax || {};
-cfg.providers.kimi.model = cfg.providers.kimi.model || 'kimi-k2.5';
-cfg.providers.minimax.model = cfg.providers.minimax.model || 'abab6.5s-chat';
-
-if (provider === 'kimi') {
-  cfg.providers.kimi.api_key = apiKey;
-} else {
-  cfg.providers.minimax.api_key = apiKey;
-}
-
-cfg.default_provider = provider;
-cfg.default_model = model;
-
-cfg.feishu = cfg.feishu || {};
-cfg.feishu.app_id = appId;
-cfg.feishu.app_secret = appSecret;
-
-fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n');
-NODE
+openclaw config set channels.feishu.enabled true
+openclaw config set channels.feishu.accounts.main.appId "$feishu_app_id"
+openclaw config set channels.feishu.accounts.main.appSecret "$feishu_app_secret"
 
 section "Starting Gateway"
-openclaw doctor || true
-openclaw gateway stop >/dev/null 2>&1 || true
-openclaw gateway start
+openclaw gateway install >/dev/null 2>&1 || true
+openclaw gateway start >/dev/null 2>&1 || true
+if ! openclaw health >/dev/null 2>&1; then
+  nohup openclaw gateway run >/tmp/openclaw_gateway.log 2>&1 &
+  sleep 2
+fi
 
 section "Done"
 echo "Installed and configured successfully."
-echo "Provider: $provider, model: $model"
+echo "Provider: $provider, model: $model_ref"
 echo "Use: openclaw models list"
