@@ -196,10 +196,12 @@ fi
 openclaw config set channels.feishu.enabled true
 openclaw config set channels.feishu.accounts.main.appId "$feishu_app_id"
 openclaw config set channels.feishu.accounts.main.appSecret "$feishu_app_secret"
-feishu_dm_policy="${OPENCLAW_FEISHU_DM_POLICY:-open}"
+feishu_dm_policy="${OPENCLAW_FEISHU_DM_POLICY:-pairing}"
 openclaw config set channels.feishu.dmPolicy "$feishu_dm_policy"
 if [ "$feishu_dm_policy" = "open" ]; then
   openclaw config set channels.feishu.allowFrom '["*"]' --strict-json
+else
+  openclaw config unset channels.feishu.allowFrom >/dev/null 2>&1 || true
 fi
 
 section "Starting Gateway"
@@ -214,3 +216,9 @@ section "Done"
 echo "Installed and configured successfully."
 echo "Provider: $provider, model: $model_ref"
 echo "Use: openclaw models list"
+if [ "$feishu_dm_policy" = "pairing" ]; then
+  echo "Pairing mode enabled."
+  echo "1) Send 'hi' to your Feishu bot."
+  echo "2) Copy pairing code from bot reply."
+  echo "3) Run: openclaw pairing approve feishu <PAIRING_CODE>"
+fi

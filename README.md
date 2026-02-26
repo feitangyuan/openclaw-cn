@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/instal
 
 填完自动配置，自动启动 Gateway。
 安装阶段会优先使用国内 npm 镜像，失败后自动回退官方安装方式。
-默认开启飞书免配对（首次可直接聊天）。
+默认开启飞书配对模式（首次消息需批准，更安全）。
 
 默认使用 Kimi；如果你用 MiniMax，可在安装命令前加：
 
@@ -24,11 +24,17 @@ curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/instal
 OPENCLAW_PROVIDER=minimax curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
 ```
 
-如需更安全的配对模式（首次消息需批准）：
+如需免配对（首次可直接聊天）：
 
 ```bash
-OPENCLAW_FEISHU_DM_POLICY=pairing curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
+OPENCLAW_FEISHU_DM_POLICY=open curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
 ```
+
+## 首次配对（默认模式）
+
+1. 先在飞书里给机器人发 `hi`
+2. 机器人会回一个 `Pairing code`
+3. 在终端执行：`openclaw pairing approve feishu <PAIRING_CODE>`
 
 ---
 
