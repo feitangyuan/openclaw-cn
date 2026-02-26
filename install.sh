@@ -51,10 +51,12 @@ read_required_secret() {
 choose_provider() {
   local key=""
   while true; do
-    echo "Choose model provider (single key, no Enter needed):"
-    echo "[K] Kimi (default, recommended)"
+    echo "选择模型厂商（单键选择，不用回车）："
+    echo "[K] Kimi（默认，推荐）"
     echo "[M] MiniMax"
-    printf "Press K or M (default K in 8s): "
+    echo "[1] Kimi（同 K）"
+    echo "[2] MiniMax（同 M）"
+    printf "请按 K / M / 1 / 2（8 秒默认 Kimi）: "
     if read -r -s -n 1 -t 8 key </dev/tty; then
       echo
     else
@@ -63,16 +65,16 @@ choose_provider() {
     fi
 
     case "${key,,}" in
-      ""|"k")
+      ""|"k"|"1")
         printf "kimi"
         return
         ;;
-      "m")
+      "m"|"2")
         printf "minimax"
         return
         ;;
       *)
-        echo "Invalid key. Please press K or M."
+        echo "输入无效，请按 K / M / 1 / 2。"
         ;;
     esac
   done
