@@ -64,12 +64,12 @@ choose_provider() {
       key="k"
     fi
 
-    case "${key,,}" in
-      ""|"k"|"1")
+    case "$key" in
+      ""|"k"|"K"|"1")
         printf "kimi"
         return
         ;;
-      "m"|"2")
+      "m"|"M"|"2")
         printf "minimax"
         return
         ;;
