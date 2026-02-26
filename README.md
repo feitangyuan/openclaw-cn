@@ -5,16 +5,22 @@ OpenClaw 国内极简安装脚本，跳过官方向导，一行命令完成安�
 ## 用法
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PatrickJS/openclaw-cn/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
 ```
 
 脚本会自动安装 OpenClaw，然后提示你依次填入三个值：
 
-1. **Kimi API Key**（或 MiniMax）— 去 [platform.moonshot.ai](https://platform.moonshot.ai) 注册获取
+1. **模型 API Key**（Kimi 或 MiniMax）— 去对应平台官网获取
 2. **飞书 App ID** — 格式以 `cli_` 开头
 3. **飞书 App Secret** — 和 App ID 在同一个页面
 
 填完自动配置，自动启动 Gateway。
+
+默认使用 Kimi；如果你用 MiniMax，可在安装命令前加：
+
+```bash
+OPENCLAW_PROVIDER=minimax curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
+```
 
 ---
 
@@ -22,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/PatrickJS/openclaw-cn/main/install.
 
 **本地环境**
 
-- Node.js v22 或以上（[下载地址](https://nodejs.org)）
+- 脚本会自动安装 Node.js v22+ 和 OpenClaw
 - Windows 用户需先开启 WSL
 
 **飞书机器人**（需提前创建）

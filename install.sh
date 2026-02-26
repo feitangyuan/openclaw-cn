@@ -15,43 +15,123 @@ read_secret() {
   printf '%s' "$value"
 }
 
-section "Checking Node.js"
-if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js is required (v22+). Install from https://nodejs.org and retry."
-  exit 1
-fi
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
 
-NODE_MAJOR="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
-if [ "${NODE_MAJOR}" -lt 22 ]; then
-  echo "Node.js v22+ is required. Current: $(node -v)"
-  exit 1
-fi
+run_privileged() {
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    "$@"
+  elif command_exists sudo; then
+    sudo "$@"
+  else
+    echo "Need root privileges but sudo is not available."
+    exit 1
+  fi
+}
 
-section "Installing OpenClaw"
-if ! command -v openclaw >/dev/null 2>&1; then
-  curl -fsSL https://openclaw.ai/install.sh | bash
-fi
+ensure_node22() {
+  if command_exists node; then
+    local current_major
+    current_major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+    if [ "${current_major}" -ge 22 ]; then
+      return
+    fi
+  fi
 
-if ! command -v openclaw >/dev/null 2>&1; then
-  echo "OpenClaw installation failed."
-  exit 1
-fi
+  section "Installing Node.js v22+"
+  local os
+  os="$(uname -s)"
+
+  if [ "$os" = "Darwin" ]; then
+    if ! command_exists brew; then
+      /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      if [ -x /opt/homebrew/bin/brew ]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+      elif [ -x /usr/local/bin/brew ]; then
+        eval "$(/usr/local/bin/brew shellenv)"
+      fi
+    fi
+    brew install node@22 || brew upgrade node@22 || true
+    if [ -x "$(brew --prefix node@22)/bin/node" ]; then
+      export PATH="$(brew --prefix node@22)/bin:$PATH"
+    fi
+  elif command_exists apt-get; then
+    run_privileged apt-get update -y
+    run_privileged apt-get install -y ca-certificates curl gnupg
+    curl -fsSL https://deb.nodesource.com/setup_22.x | run_privileged bash -
+    run_privileged apt-get install -y nodejs
+  elif command_exists dnf; then
+    curl -fsSL https://rpm.nodesource.com/setup_22.x | run_privileged bash -
+    run_privileged dnf install -y nodejs
+  elif command_exists yum; then
+    curl -fsSL https://rpm.nodesource.com/setup_22.x | run_privileged bash -
+    run_privileged yum install -y nodejs
+  else
+    echo "Unable to auto-install Node.js. Please install Node.js v22+ manually from https://nodejs.org"
+    exit 1
+  fi
+
+  if ! command_exists node; then
+    echo "Node.js installation failed."
+    exit 1
+  fi
+  local installed_major
+  installed_major="$(node -v | sed -E 's/^v([0-9]+).*/\1/')"
+  if [ "${installed_major}" -lt 22 ]; then
+    echo "Node.js v22+ is required. Current: $(node -v)"
+    exit 1
+  fi
+}
+
+ensure_openclaw() {
+  if command_exists openclaw; then
+    return
+  fi
+
+  section "Installing OpenClaw"
+  if command_exists npm; then
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+      npm install -g openclaw
+    elif [ -w /opt/homebrew/lib/node_modules ] || [ -w /usr/local/lib/node_modules ]; then
+      npm install -g openclaw
+    elif command_exists sudo; then
+      run_privileged npm install -g openclaw
+    else
+      npm install -g openclaw
+    fi
+  fi
+
+  if ! command_exists openclaw; then
+    curl -fsSL https://openclaw.ai/install.sh | bash
+  fi
+
+  if ! command_exists openclaw; then
+    echo "OpenClaw installation failed."
+    exit 1
+  fi
+}
+
+section "Preparing environment"
+ensure_node22
+ensure_openclaw
 
 section "Collecting config"
-echo "Choose provider:"
-echo "1) Kimi (recommended)"
-echo "2) MiniMax"
-read -r -p "Provider [1/2, default 1]: " provider_choice
-provider_choice="${provider_choice:-1}"
+provider="${OPENCLAW_PROVIDER:-kimi}"
+case "$provider" in
+  kimi)
+    model="kimi-k2.5"
+    ;;
+  minimax)
+    model="abab6.5s-chat"
+    ;;
+  *)
+    echo "OPENCLAW_PROVIDER must be 'kimi' or 'minimax'."
+    exit 1
+    ;;
+esac
 
-provider="kimi"
-model="kimi-k2.5"
-if [ "$provider_choice" = "2" ]; then
-  provider="minimax"
-  model="abab6.5s-chat"
-fi
-
-api_key="$(read_secret "${provider^} API Key: ")"
+api_key="$(read_secret "Model API Key: ")"
 feishu_app_id="$(read -r -p "Feishu App ID (cli_...): " v; printf '%s' "$v")"
 feishu_app_secret="$(read_secret "Feishu App Secret: ")"
 
@@ -119,4 +199,5 @@ openclaw gateway start
 
 section "Done"
 echo "Installed and configured successfully."
+echo "Provider: $provider, model: $model"
 echo "Use: openclaw models list"
