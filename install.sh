@@ -187,6 +187,17 @@ echo "We need 3 values: API Key, Feishu App ID, Feishu App Secret."
 echo "Tip: all inputs are visible on screen. Type and press Enter."
 
 provider="${OPENCLAW_PROVIDER:-}"
+provider="$(printf '%s' "$provider" | tr -d '[:space:]')"
+provider="$(printf '%s' "$provider" | tr '[:upper:]' '[:lower:]')"
+case "$provider" in
+  "1"|"k")
+    provider="kimi"
+    ;;
+  "2"|"m")
+    provider="minimax"
+    ;;
+esac
+
 if [ -z "$provider" ]; then
   provider="$(choose_provider)"
 fi
@@ -201,8 +212,18 @@ case "$provider" in
     api_key_label="MiniMax API Key"
     ;;
   *)
-    echo "OPENCLAW_PROVIDER must be 'kimi' or 'minimax'."
-    exit 1
+    echo "OPENCLAW_PROVIDER value '$provider' is invalid. Falling back to interactive choice."
+    provider="$(choose_provider)"
+    case "$provider" in
+      kimi)
+        model="kimi-k2.5"
+        api_key_label="Kimi API Key"
+        ;;
+      minimax)
+        model="abab6.5s-chat"
+        api_key_label="MiniMax API Key"
+        ;;
+    esac
     ;;
 esac
 
