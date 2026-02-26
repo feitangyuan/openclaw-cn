@@ -22,6 +22,32 @@ read_text() {
   printf '%s' "$value"
 }
 
+read_required_text() {
+  local prompt="$1"
+  local value=""
+  while true; do
+    value="$(read_text "$prompt")"
+    if [ -n "$value" ]; then
+      printf '%s' "$value"
+      return
+    fi
+    echo "This field is required. Please try again."
+  done
+}
+
+read_required_secret() {
+  local prompt="$1"
+  local value=""
+  while true; do
+    value="$(read_secret "$prompt")"
+    if [ -n "$value" ]; then
+      printf '%s' "$value"
+      return
+    fi
+    echo "This field is required. Please try again."
+  done
+}
+
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
@@ -125,13 +151,31 @@ ensure_node22
 ensure_openclaw
 
 section "Collecting config"
-provider="${OPENCLAW_PROVIDER:-kimi}"
+echo "We need 3 values: API Key, Feishu App ID, Feishu App Secret."
+echo "Tip: secret fields do not show typed characters. Type and press Enter."
+
+provider="${OPENCLAW_PROVIDER:-}"
+if [ -z "$provider" ]; then
+  echo "Choose model provider:"
+  echo "1) Kimi (default, recommended)"
+  echo "2) MiniMax"
+  provider_choice="$(read_text "Enter 1 or 2 (default 1): ")"
+  provider_choice="${provider_choice:-1}"
+  if [ "$provider_choice" = "2" ]; then
+    provider="minimax"
+  else
+    provider="kimi"
+  fi
+fi
+
 case "$provider" in
   kimi)
     model="kimi-k2.5"
+    api_key_label="Kimi API Key"
     ;;
   minimax)
     model="abab6.5s-chat"
+    api_key_label="MiniMax API Key"
     ;;
   *)
     echo "OPENCLAW_PROVIDER must be 'kimi' or 'minimax'."
@@ -139,9 +183,9 @@ case "$provider" in
     ;;
 esac
 
-api_key="$(read_secret "Model API Key: ")"
-feishu_app_id="$(read_text "Feishu App ID (cli_...): ")"
-feishu_app_secret="$(read_secret "Feishu App Secret: ")"
+api_key="$(read_required_secret "$api_key_label (input hidden, press Enter to submit): ")"
+feishu_app_id="$(read_required_text "Feishu App ID (starts with cli_): ")"
+feishu_app_secret="$(read_required_secret "Feishu App Secret (input hidden, press Enter to submit): ")"
 
 if [ -z "$api_key" ] || [ -z "$feishu_app_id" ] || [ -z "$feishu_app_secret" ]; then
   echo "All values are required."
