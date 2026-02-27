@@ -17,6 +17,7 @@ curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/instal
 填完自动配置，自动启动 Gateway。
 安装阶段会优先使用国内 npm 镜像，失败后自动回退官方安装方式。
 默认开启飞书配对模式（首次消息需批准，更安全）。
+安全策略见：[SECURITY_POLICY.md](./SECURITY_POLICY.md)。
 
 默认使用 **Kimi Code**（适配 `kimi.com/code/console` 的 key）。
 
