@@ -6,6 +6,69 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
+inject_runtime_safety_policy() {
+  section "Applying runtime safety policy"
+
+  local workspace_dir
+  workspace_dir="$(openclaw config get agents.defaults.workspace 2>/dev/null || true)"
+  workspace_dir="$(printf '%s' "$workspace_dir" | tr -d '\r')"
+  if [ -z "$workspace_dir" ]; then
+    workspace_dir="$HOME/.openclaw/workspace"
+  fi
+  mkdir -p "$workspace_dir"
+
+  local agents_file="$workspace_dir/AGENTS.md"
+  local tmp_file="$agents_file.tmp.$$"
+  local start_marker="<!-- openclaw-cn:safety:start -->"
+  local end_marker="<!-- openclaw-cn:safety:end -->"
+  local policy_block
+
+  policy_block="$(cat <<'EOF'
+<!-- openclaw-cn:safety:start -->
+## OpenClaw-CN Safety Policy
+
+Follow these rules in Feishu conversations:
+
+- Do not ask for confirmation for normal chat, Q&A, summarization, or read-only checks.
+- Ask for explicit user confirmation before high-risk or permission-changing actions.
+
+High-risk actions that require confirmation:
+
+- Changing access controls (`dmPolicy`, `allowFrom`, `groupAllowFrom`, open access).
+- Enabling/disabling plugins or skills, or installing dependencies.
+- Setting/rotating external API keys or third-party credentials.
+- Granting/requesting new Feishu app scopes/permissions.
+- Bulk send/delete/share operations, or irreversible operations.
+
+Admin-only actions:
+
+- Any Feishu scope authorization change must be completed by an admin.
+- If admin action is needed, explain what is missing and provide exact steps.
+
+When confirmation is required:
+
+- Explain why, show exact command/action, then wait for clear "同意/确认".
+- Without confirmation, provide guidance only and do not execute.
+<!-- openclaw-cn:safety:end -->
+EOF
+)"
+
+  if [ -f "$agents_file" ]; then
+    awk -v s="$start_marker" -v e="$end_marker" '
+      BEGIN { skip = 0 }
+      $0 == s { skip = 1; next }
+      $0 == e { skip = 0; next }
+      skip == 0 { print }
+    ' "$agents_file" >"$tmp_file"
+  else
+    printf '# AGENTS.md\n' >"$tmp_file"
+  fi
+
+  printf '\n%s\n' "$policy_block" >>"$tmp_file"
+  mv "$tmp_file" "$agents_file"
+  echo "Runtime safety policy synced: $agents_file"
+}
+
 read_text() {
   local prompt="$1"
   local value=""
@@ -224,6 +287,8 @@ if ! openclaw health >/dev/null 2>&1; then
   nohup openclaw gateway run >/tmp/openclaw_gateway.log 2>&1 &
   sleep 2
 fi
+
+inject_runtime_safety_policy
 
 section "Done"
 echo "Installed and configured successfully."
