@@ -1,24 +1,41 @@
 # openclaw-cn
 
-OpenClaw 国内极简安装脚本，跳过官方向导，一行命令完成安装并直连飞书。
+OpenClaw 国内极简安装脚本，跳过官方向导，一键完成安装并直连飞书。
 
 ## 用法
+
+### 方式 1：一行命令（在线安装）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/install.sh | bash
 ```
 
-脚本会自动安装 OpenClaw，然后提示你依次填入三个值：
+运行后会自动打开本地网页配置页。
+你只需要在浏览器里填写 4 项：
 
-1. **模型 API Key**（Kimi 或 MiniMax）— 去对应平台官网获取
-2. **飞书 App ID** — 格式以 `cli_` 开头
-3. **飞书 App Secret** — 和 App ID 在同一个页面
+1. **模型厂商**（Kimi Code / Moonshot / MiniMax）
+2. **模型 API Key** — 去对应平台官网获取
+3. **飞书 App ID** — 格式以 `cli_` 开头
+4. **飞书 App Secret** — 和 App ID 在同一个页面
 
-填完自动配置，自动启动 Gateway。
+提交后终端会继续自动配置并启动 Gateway。
 安装阶段会优先使用国内 npm 镜像，失败后自动回退官方安装方式。
 默认开启飞书配对模式（首次消息需批准，更安全）。
 安装后会自动注入运行时安全策略（仅扩权/高风险动作需要确认，普通聊天不打断）。
 安全策略见：[SECURITY_POLICY.md](./SECURITY_POLICY.md)。
+
+如果当前环境没有图形界面，脚本会自动回退到终端输入模式。
+
+### 方式 2：双击启动（本地安装包）
+
+仓库内已提供启动器：
+
+- macOS：`launch.command`
+- Linux：`launch.sh`
+- Windows：`launch.bat`
+
+把 `install.sh` 和对应启动器放在同一目录即可。
+启动器会优先执行同目录的本地 `install.sh`；如果本地没有，再回退到 GitHub 下载最新版本。
 
 默认使用 **Kimi Code**（适配 `kimi.com/code/console` 的 key）。
 
@@ -53,7 +70,7 @@ OPENCLAW_FEISHU_DM_POLICY=open curl -fsSL https://raw.githubusercontent.com/feit
 **本地环境**
 
 - 脚本会自动安装 Node.js v22+ 和 OpenClaw
-- Windows 用户需先开启 WSL
+- Windows 用户需先安装可用的 `bash`（推荐 WSL，也可用 Git Bash）
 
 **飞书机器人**（需提前创建）
 
