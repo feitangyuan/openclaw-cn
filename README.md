@@ -11,12 +11,28 @@ curl -fsSL https://raw.githubusercontent.com/feitangyuan/openclaw-cn/main/instal
 ```
 
 运行后会自动打开本地网页配置页。
-你只需要在浏览器里填写 4 项：
+你先填写基础配置，再勾选想要的 Skills：
 
 1. **模型厂商**（Kimi Code / Moonshot / MiniMax）
 2. **模型 API Key** — 去对应平台官网获取
 3. **飞书 App ID** — 格式以 `cli_` 开头
 4. **飞书 App Secret** — 和 App ID 在同一个页面
+5. **必装 Skills**（可勾选）
+
+当前网页里可勾选的 Skills：
+
+- `web-search`：网页搜索
+- `autonomy`：自主执行（启用内置能力）
+- `summarize`：网页总结与链接提取
+- `nano-pdf`：PDF 处理
+- `openai-whisper`：音频转文字
+- `github`：GitHub 开发能力
+
+默认会预选：
+
+- `web-search`
+- `autonomy`
+- `summarize`
 
 提交后终端会继续自动配置并启动 Gateway。
 安装阶段会优先使用国内 npm 镜像，失败后自动回退官方安装方式。
@@ -62,6 +78,13 @@ OPENCLAW_FEISHU_DM_POLICY=open curl -fsSL https://raw.githubusercontent.com/feit
 1. 先在飞书里给机器人发 `hi`
 2. 机器人会回一个 `Pairing code`
 3. 在终端执行：`openclaw pairing approve feishu <PAIRING_CODE>`
+
+说明：
+
+- 如果你安装时把 `OPENCLAW_FEISHU_DM_POLICY` 设成了 `open`，则不需要配对
+- `web-search` 勾选后不一定等于“直接可搜”
+- `Moonshot` 可直接复用同一个 API Key 开启搜索
+- `Kimi Code / MiniMax` 如果没有额外搜索 key，脚本会自动跳过直连搜索，不会让安装失败
 
 ---
 
