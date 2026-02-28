@@ -93,6 +93,47 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+append_csv_item() {
+  local current="${1:-}"
+  local item="${2:-}"
+  if [ -z "$item" ]; then
+    printf '%s' "$current"
+    return
+  fi
+  if [ -z "$current" ]; then
+    printf '%s' "$item"
+  else
+    printf '%s,%s' "$current" "$item"
+  fi
+}
+
+normalize_selected_skills() {
+  local raw="${1:-}"
+  local normalized=""
+  local old_ifs="$IFS"
+  local item=""
+  local skill=""
+
+  IFS=', '
+  for item in $raw; do
+    skill="$(printf '%s' "$item" | tr '[:upper:]' '[:lower:]')"
+    case "$skill" in
+      web-search|autonomy|summarize|github|nano-pdf|openai-whisper)
+        case ",$normalized," in
+          *",$skill,"*)
+            ;;
+          *)
+            normalized="$(append_csv_item "$normalized" "$skill")"
+            ;;
+        esac
+        ;;
+    esac
+  done
+  IFS="$old_ifs"
+
+  printf '%s' "$normalized"
+}
+
 normalize_provider() {
   local value="${1:-kimi-code}"
   value="$(printf '%s' "$value" | tr -d '[:space:]')"
@@ -234,6 +275,8 @@ collect_config_via_web() {
   local result_file="$tmp_dir/config.json"
   local port_file="$tmp_dir/port.txt"
   local server_pid=""
+  local default_skills
+  default_skills="$(normalize_selected_skills "${OPENCLAW_SKILLS:-web-search,autonomy,summarize}")"
 
   cat >"$server_js" <<'EOF'
 const fs = require("fs");
@@ -242,8 +285,13 @@ const http = require("http");
 const resultFile = process.env.OPENCLAW_WEB_RESULT_FILE;
 const portFile = process.env.OPENCLAW_WEB_PORT_FILE;
 const allowedProviders = new Set(["kimi-code", "moonshot", "minimax"]);
+const allowedSkills = new Set(["web-search", "autonomy", "summarize", "github", "nano-pdf", "openai-whisper"]);
 const requestedProvider = String(process.env.OPENCLAW_WEB_DEFAULT_PROVIDER || "kimi-code").toLowerCase();
 const defaultProvider = allowedProviders.has(requestedProvider) ? requestedProvider : "kimi-code";
+const defaultSkills = String(process.env.OPENCLAW_WEB_DEFAULT_SKILLS || "")
+  .split(",")
+  .map((value) => value.trim().toLowerCase())
+  .filter((value) => allowedSkills.has(value));
 
 function page(errorMessage) {
   const errorHtml = errorMessage
@@ -333,7 +381,7 @@ function page(errorMessage) {
       font-weight: 600;
     }
     select,
-    input {
+    input[type="text"] {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -344,9 +392,59 @@ function page(errorMessage) {
       outline: none;
     }
     select:focus,
-    input:focus {
+    input[type="text"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.10);
+    }
+    .skills-block {
+      margin-top: 2px;
+      padding: 16px;
+      border: 1px solid rgba(216, 199, 171, 0.9);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+    .skills-title {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .skills-hint {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .skill-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .skill-item {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(216, 199, 171, 0.9);
+      background: #fffdf8;
+    }
+    .skill-item input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--accent);
+    }
+    .skill-name {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .skill-desc {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
     }
     button {
       margin-top: 4px;
@@ -369,7 +467,7 @@ function page(errorMessage) {
 <body>
   <main class="card">
     <h1>OpenClaw 一键安装</h1>
-    <p>只需要填写 4 项，点一下就开始。终端会在后台继续安装，你不用再手动输入命令。</p>
+    <p>只需要填写基础配置，勾选想要的 Skills，点一下就开始。终端会在后台继续安装，你不用再手动输入命令。</p>
     <div class="note">输入框内容默认可见，避免看不见自己输到了哪里。提交后此页面会提示“已开始安装”。</div>
     ${errorHtml}
     <form method="post" action="/submit">
@@ -393,12 +491,61 @@ function page(errorMessage) {
         <span class="field-title">飞书 App Secret</span>
         <input id="feishuAppSecret" name="feishuAppSecret" type="text" autocomplete="off" required>
       </label>
+      <section class="skills-block" aria-labelledby="skills-title">
+        <h2 class="skills-title" id="skills-title">必装 Skills</h2>
+        <p class="skills-hint">这里统一放常用能力。底层有的是安装 Skills，有的是直接打开内置能力。默认已选最基础的几项，你也可以取消。</p>
+        <div class="skill-list">
+          <label class="skill-item">
+            <input id="skill-web-search" name="skills" type="checkbox" value="web-search">
+            <span>
+              <span class="skill-name">网页搜索</span>
+              <span class="skill-desc">优先启用直接搜索。Moonshot 可直接复用同一个 API Key；Kimi Code 和 MiniMax 没有搜索 Key 时会自动跳过。</span>
+            </span>
+          </label>
+          <label class="skill-item">
+            <input id="skill-autonomy" name="skills" type="checkbox" value="autonomy">
+            <span>
+              <span class="skill-name">自主执行</span>
+              <span class="skill-desc">打开 coding-agent、tmux、healthcheck、session-logs 这类内置能力，不额外装第三方仓库。</span>
+            </span>
+          </label>
+          <label class="skill-item">
+            <input id="skill-summarize" name="skills" type="checkbox" value="summarize">
+            <span>
+              <span class="skill-name">网页总结与链接提取</span>
+              <span class="skill-desc">对应 summarize。补上抓网页、提取正文、总结链接这类常见能力。</span>
+            </span>
+          </label>
+          <label class="skill-item">
+            <input id="skill-nano-pdf" name="skills" type="checkbox" value="nano-pdf">
+            <span>
+              <span class="skill-name">PDF 处理</span>
+              <span class="skill-desc">对应 nano-pdf。用自然语言改 PDF，适合办公场景。</span>
+            </span>
+          </label>
+          <label class="skill-item">
+            <input id="skill-openai-whisper" name="skills" type="checkbox" value="openai-whisper">
+            <span>
+              <span class="skill-name">音频转文字</span>
+              <span class="skill-desc">对应 openai-whisper。本地转写，不依赖额外 API Key，但首次使用会下载模型。</span>
+            </span>
+          </label>
+          <label class="skill-item">
+            <input id="skill-github" name="skills" type="checkbox" value="github">
+            <span>
+              <span class="skill-name">GitHub 开发能力</span>
+              <span class="skill-desc">对应 github。可做 issue、PR、CI 等操作。安装后仍需单独登录 gh。</span>
+            </span>
+          </label>
+        </div>
+      </section>
       <button type="submit">开始安装</button>
     </form>
     <div class="footer">提交后如果浏览器保持打开是正常的，安装结果请看终端窗口。</div>
   </main>
   <script>
     const defaultProvider = ${JSON.stringify(defaultProvider)};
+    const defaultSkills = ${JSON.stringify(defaultSkills)};
     const labels = {
       "kimi-code": "Kimi Code API Key",
       "moonshot": "Moonshot API Key",
@@ -406,7 +553,19 @@ function page(errorMessage) {
     };
     const providerEl = document.getElementById("provider");
     const labelEl = document.getElementById("api-key-label");
+    const webSearchEl = document.getElementById("skill-web-search");
+    const autonomyEl = document.getElementById("skill-autonomy");
+    const summarizeEl = document.getElementById("skill-summarize");
+    const nanoPdfEl = document.getElementById("skill-nano-pdf");
+    const whisperEl = document.getElementById("skill-openai-whisper");
+    const githubEl = document.getElementById("skill-github");
     providerEl.value = defaultProvider;
+    webSearchEl.checked = defaultSkills.includes("web-search");
+    autonomyEl.checked = defaultSkills.includes("autonomy");
+    summarizeEl.checked = defaultSkills.includes("summarize");
+    nanoPdfEl.checked = defaultSkills.includes("nano-pdf");
+    whisperEl.checked = defaultSkills.includes("openai-whisper");
+    githubEl.checked = defaultSkills.includes("github");
     function updateApiLabel() {
       labelEl.textContent = labels[providerEl.value] || "API Key";
     }
@@ -471,6 +630,10 @@ const server = http.createServer((req, res) => {
       const apiKey = String(form.get("apiKey") || "").trim();
       const feishuAppId = String(form.get("feishuAppId") || "").trim();
       const feishuAppSecret = String(form.get("feishuAppSecret") || "").trim();
+      const selectedSkills = form
+        .getAll("skills")
+        .map((value) => String(value || "").trim().toLowerCase())
+        .filter((value, index, list) => allowedSkills.has(value) && list.indexOf(value) === index);
 
       if (!provider) {
         sendHtml(res, 400, page("请选择一个有效的模型厂商。"));
@@ -483,7 +646,13 @@ const server = http.createServer((req, res) => {
 
       fs.writeFileSync(
         resultFile,
-        JSON.stringify({ provider, apiKey, feishuAppId, feishuAppSecret }),
+        JSON.stringify({
+          provider,
+          apiKey,
+          feishuAppId,
+          feishuAppSecret,
+          skillsCsv: selectedSkills.join(",")
+        }),
         { mode: 0o600 }
       );
 
@@ -551,6 +720,7 @@ EOF
   OPENCLAW_WEB_RESULT_FILE="$result_file" \
   OPENCLAW_WEB_PORT_FILE="$port_file" \
   OPENCLAW_WEB_DEFAULT_PROVIDER="$default_provider" \
+  OPENCLAW_WEB_DEFAULT_SKILLS="$default_skills" \
   node "$server_js" >/dev/null 2>&1 &
   server_pid=$!
 
@@ -589,8 +759,8 @@ EOF
   api_key="$(read_json_value "$result_file" "apiKey")"
   feishu_app_id="$(read_json_value "$result_file" "feishuAppId")"
   feishu_app_secret="$(read_json_value "$result_file" "feishuAppSecret")"
+  selected_skills="$(normalize_selected_skills "$(read_json_value "$result_file" "skillsCsv")")"
 
-  wait "$server_pid" >/dev/null 2>&1 || true
   rm -rf "$tmp_dir"
   return 0
 }
@@ -635,6 +805,8 @@ collect_config_via_tty() {
   if [ -z "$feishu_app_secret" ]; then
     feishu_app_secret="$(read_required_text "Feishu App Secret: ")"
   fi
+
+  selected_skills="$(normalize_selected_skills "${OPENCLAW_SKILLS:-}")"
 }
 
 collect_config() {
@@ -642,6 +814,7 @@ collect_config() {
   api_key="${OPENCLAW_API_KEY:-}"
   feishu_app_id="${OPENCLAW_FEISHU_APP_ID:-}"
   feishu_app_secret="${OPENCLAW_FEISHU_APP_SECRET:-}"
+  selected_skills="$(normalize_selected_skills "${OPENCLAW_SKILLS:-}")"
 
   if [ -n "$api_key" ] && [ -n "$feishu_app_id" ] && [ -n "$feishu_app_secret" ]; then
     section "Collecting config"
@@ -657,6 +830,141 @@ collect_config() {
   fi
 
   collect_config_via_tty
+}
+
+install_selected_skills() {
+  if [ -z "${selected_skills:-}" ]; then
+    return
+  fi
+
+  section "Installing selected Skills"
+
+  local skill=""
+  local install_failed=0
+
+  for skill in $(printf '%s' "$selected_skills" | tr ',' ' '); do
+    case "$skill" in
+      web-search)
+        local search_provider="${OPENCLAW_SEARCH_PROVIDER:-}"
+        local search_api_key="${OPENCLAW_SEARCH_API_KEY:-}"
+        if [ -n "$search_provider" ] && [ -n "$search_api_key" ]; then
+          case "$search_provider" in
+            brave)
+              echo "Enabling web search with Brave..."
+              if ! openclaw config set tools.web.search.provider brave >/dev/null 2>&1 ||
+                ! openclaw config set tools.web.search.apiKey "$search_api_key" >/dev/null 2>&1 ||
+                ! openclaw config set tools.web.search.enabled true >/dev/null 2>&1; then
+                echo "Skipped web-search: unable to write Brave search config."
+                install_failed=1
+              fi
+              ;;
+            kimi)
+              echo "Enabling web search with Kimi..."
+              if ! openclaw config set tools.web.search.provider kimi >/dev/null 2>&1 ||
+                ! openclaw config set tools.web.search.kimi.apiKey "$search_api_key" >/dev/null 2>&1 ||
+                ! openclaw config set tools.web.search.enabled true >/dev/null 2>&1; then
+                echo "Skipped web-search: unable to write Kimi search config."
+                install_failed=1
+              fi
+              ;;
+            *)
+              echo "Skipped web-search: unsupported OPENCLAW_SEARCH_PROVIDER '$search_provider'."
+              install_failed=1
+              ;;
+          esac
+          continue
+        fi
+
+        if [ "$provider" = "moonshot" ]; then
+          echo "Enabling web search with Moonshot API Key..."
+          if ! openclaw config set tools.web.search.provider kimi >/dev/null 2>&1 ||
+            ! openclaw config set tools.web.search.kimi.apiKey "$api_key" >/dev/null 2>&1 ||
+            ! openclaw config set tools.web.search.enabled true >/dev/null 2>&1; then
+            echo "Skipped web-search: unable to write Moonshot search config."
+            install_failed=1
+          fi
+        else
+          echo "Skipped web-search: Moonshot or OPENCLAW_SEARCH_API_KEY is required for direct search."
+          openclaw config set tools.web.search.enabled false >/dev/null 2>&1 || true
+        fi
+        ;;
+      autonomy)
+        echo "Enabling built-in autonomy skills..."
+        openclaw config set skills.entries.coding-agent.enabled true >/dev/null 2>&1 || true
+        openclaw config set skills.entries.tmux.enabled true >/dev/null 2>&1 || true
+        openclaw config set skills.entries.healthcheck.enabled true >/dev/null 2>&1 || true
+        openclaw config set skills.entries.session-logs.enabled true >/dev/null 2>&1 || true
+        ;;
+      summarize)
+        if command_exists summarize; then
+          echo "summarize is already installed."
+          continue
+        fi
+        if ! command_exists brew; then
+          echo "Skipped summarize: Homebrew is required for one-click install."
+          install_failed=1
+          continue
+        fi
+        echo "Installing summarize..."
+        if ! brew install steipete/tap/summarize; then
+          echo "summarize installation failed."
+          install_failed=1
+        fi
+        ;;
+      nano-pdf)
+        if command_exists nano-pdf; then
+          echo "nano-pdf is already installed."
+          continue
+        fi
+        if ! command_exists uv; then
+          echo "Skipped nano-pdf: uv is required for one-click install."
+          install_failed=1
+          continue
+        fi
+        echo "Installing nano-pdf..."
+        if ! uv tool install nano-pdf >/dev/null 2>&1 && ! uv tool upgrade --reinstall nano-pdf >/dev/null 2>&1; then
+          echo "nano-pdf installation failed."
+          install_failed=1
+        fi
+        ;;
+      openai-whisper)
+        if command_exists whisper; then
+          echo "whisper is already installed."
+          continue
+        fi
+        if ! command_exists brew; then
+          echo "Skipped openai-whisper: Homebrew is required for one-click install."
+          install_failed=1
+          continue
+        fi
+        echo "Installing OpenAI Whisper..."
+        if ! brew install openai-whisper; then
+          echo "OpenAI Whisper installation failed."
+          install_failed=1
+        fi
+        ;;
+      github)
+        if command_exists gh; then
+          echo "gh is already installed."
+          continue
+        fi
+        if ! command_exists brew; then
+          echo "Skipped github: Homebrew is required for one-click install."
+          install_failed=1
+          continue
+        fi
+        echo "Installing GitHub CLI..."
+        if ! brew install gh; then
+          echo "GitHub CLI installation failed."
+          install_failed=1
+        fi
+        ;;
+    esac
+  done
+
+  if [ "$install_failed" -ne 0 ]; then
+  echo "Some selected Skills were skipped or failed. Base OpenClaw setup is still complete."
+  fi
 }
 
 run_privileged() {
@@ -799,6 +1107,8 @@ else
   openclaw config unset channels.feishu.allowFrom >/dev/null 2>&1 || true
 fi
 
+install_selected_skills
+
 section "Starting Gateway"
 openclaw gateway install >/dev/null 2>&1 || true
 openclaw gateway start >/dev/null 2>&1 || true
@@ -812,6 +1122,14 @@ inject_runtime_safety_policy
 section "Done"
 echo "Installed and configured successfully."
 echo "Provider: $provider, model: $model_ref"
+if [ -n "${selected_skills:-}" ]; then
+  echo "Selected Skills: $selected_skills"
+  case ",$selected_skills," in
+    *,github,*)
+      echo "GitHub skill note: run 'gh auth login' before using GitHub actions."
+      ;;
+  esac
+fi
 echo "Use: openclaw models list"
 if [ "$feishu_dm_policy" = "pairing" ]; then
   echo "Pairing mode enabled."
